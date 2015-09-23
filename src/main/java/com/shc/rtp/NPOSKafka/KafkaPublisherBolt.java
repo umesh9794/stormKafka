@@ -50,7 +50,7 @@ public class KafkaPublisherBolt extends BaseRichBolt {
         PROPS.put("metadata.broker.list", "trqaeahdidat04.vm.itg.corp.us.shldcorp.com:9092,trqaeahdidat05.vm.itg.corp.us.shldcorp.com:9092");
         PROPS.put("request.required.acks", "0");
         producer = new Producer<String, String>(new ProducerConfig(PROPS));
-        topic = "shc.rtp.npos";
+        topic = "shc.rtp.npos15";
     }
 
     public void execute(Tuple input) {
