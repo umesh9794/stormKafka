@@ -1,9 +1,13 @@
-package com.shc.rtp.NPOSKafka;
+package com.shc.rtp.NPOSKafka.ProducerTopology;
 
 import backtype.storm.Config;
 import backtype.storm.LocalCluster;
 import backtype.storm.StormSubmitter;
+import backtype.storm.metric.LoggingMetricsConsumer;
 import backtype.storm.topology.TopologyBuilder;
+import com.shc.rtp.cassandra.CassandraLoggerBolt;
+import org.jboss.netty.handler.codec.frame.LengthFieldBasedFrameDecoder;
+import com.shc.rtp.enums.FieldEnum;
 
 import java.io.InputStream;
 import java.util.Arrays;
@@ -25,30 +29,43 @@ public class NPOSKafkaPublisherTopology {
      */
     public static void main(String[] args) throws Exception {
 
+        System.out.println("Netty SOurce : " + LengthFieldBasedFrameDecoder.class.getCanonicalName());
+        System.out.println("Netty SOurce : " + LengthFieldBasedFrameDecoder.class.getMethods());
         loadPropertiesFromFile();
         String nimbusHost =props.getProperty("storm.nimbus");
         TopologyBuilder topologyBuilder = new TopologyBuilder();
-        topologyBuilder.setSpout("MQBrowserSpout", new MQBrowserSpout("STORM.QA.EES.DATACOLLECT.QC01"), 2);
+        topologyBuilder.setSpout("MQBrowserSpout", new MQBrowserSpout("STORM.QA.EES.DATACOLLECT.QC01"), 1);
         topologyBuilder.setBolt("KafkaPublisherBolt", new KafkaPublisherBolt(), 2).shuffleGrouping("MQBrowserSpout", "mq_spout_msg_receive_success_stream");
+        topologyBuilder.setBolt("CassandraBolt", new CassandraLoggerBolt(),2).shuffleGrouping("KafkaPublisherBolt");
 
         Config config = new Config();
         System.setProperty("storm.jar",  props.getProperty("jar.file.path"));
-        if (args != null && args.length > 1) {
+        if (args != null && args.length > 5) {
             String name = args[1];
             String[] zkHostList = args[2].split(",");
             List<String> sl = Arrays.asList(zkHostList);
-            config.setNumWorkers(2);
-            config.setMaxTaskParallelism(3);
+//            config.setNumWorkers(2);
+//            config.setMaxTaskParallelism(3);
             config.put(Config.NIMBUS_HOST, nimbusHost);
             config.put(Config.NIMBUS_THRIFT_PORT, 6628);
             config.put(Config.STORM_ZOOKEEPER_PORT, 2181);
             config.put(Config.STORM_ZOOKEEPER_SERVERS, Arrays.asList(zkHostList));
+            config.setNumAckers(20);
+            config.setNumWorkers(20);
+//            config.setMessageTimeoutSecs(300);
+//            config.setStatsSampleRate(1.0);
+//            config.setMaxSpoutPending(50000);
+//            config.put(Config.TOPOLOGY_RECEIVER_BUFFER_SIZE, 8);
+//            config.put(Config.TOPOLOGY_TRANSFER_BUFFER_SIZE,            32);
+//            config.put(Config.TOPOLOGY_EXECUTOR_RECEIVE_BUFFER_SIZE, 16384);
+//            config.put(Config.TOPOLOGY_EXECUTOR_SEND_BUFFER_SIZE,    16384);
+            config.registerMetricsConsumer(LoggingMetricsConsumer.class,2);
             StormSubmitter.submitTopology(name, config, topologyBuilder.createTopology());
         } else {
             config.setNumWorkers(2);
             config.setMaxTaskParallelism(2);
             LocalCluster cluster = new LocalCluster();
-            cluster.submitTopology("kafkaPublisher-testing", config, topologyBuilder.createTopology());
+            cluster.submitTopology("kafkaPublisher-test", config, topologyBuilder.createTopology());
         }
     }
 

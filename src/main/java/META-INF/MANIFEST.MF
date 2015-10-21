@@ -1,3 +1,3 @@
 Manifest-Version: 1.0
-Main-Class: com.shc.rtp.DemoTopology
+Main-Class: com.shc.rtp.NPOSKafka.ConsumerTopology.DemoTopology
 

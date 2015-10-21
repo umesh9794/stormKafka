@@ -1,4 +1,4 @@
-package com.shc.rtp;
+package com.shc.rtp.NPOSKafka.ConsumerTopology;
 
 import backtype.storm.Config;
 import backtype.storm.LocalCluster;
@@ -6,27 +6,16 @@ import backtype.storm.StormSubmitter;
 import backtype.storm.spout.SchemeAsMultiScheme;
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
-import backtype.storm.topology.BasicOutputCollector;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.topology.TopologyBuilder;
-import backtype.storm.topology.base.BaseBasicBolt;
 import backtype.storm.topology.base.BaseRichBolt;
 import backtype.storm.tuple.Tuple;
 import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import storm.kafka.KafkaSpout;
-import storm.kafka.SpoutConfig;
-import storm.kafka.StringScheme;
-import storm.kafka.ZkHosts;
+import storm.kafka.*;
 
 import java.io.InputStream;
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -109,7 +98,7 @@ public class DemoParellelTopology {
 
         ZkHosts zkHosts = new ZkHosts(zookeeperHost);
 
-        SpoutConfig kafkaConfig = new SpoutConfig(zkHosts, args[0], "", "spoutGrp_15");
+        SpoutConfig kafkaConfig = new SpoutConfig(zkHosts, args[0], "", "spoutGrp_18");
 //        kafkaConfig.startOffsetTime=kafka.api.OffsetRequest.EarliestTime();
 
         kafkaConfig.scheme = new SchemeAsMultiScheme(new StringScheme());
@@ -119,22 +108,24 @@ public class DemoParellelTopology {
 
 //        kafkaConfig.metricsTimeBucketSizeInSecs=10;
 
-        kafkaConfig.forceFromStart=false;
+//        kafkaConfig.forceFromStart=false;
 
         KafkaSpout kafkaSpout = new KafkaSpout(kafkaConfig);
 
+        MQSenderBolt messageSender= new MQSenderBolt("hofmdsappstrs1.sears.com", 1414, "SQAT0263", "STORM.SVRCONN", "MDS0.STORM.RFID.PILOT.QL01");
 
         TopologyBuilder builder = new TopologyBuilder();
 
-        builder.setSpout("kafkaMessageConsumer", kafkaSpout, 1);
+        builder.setSpout("kafkaMessageConsumer", kafkaSpout, 2);
 
-        builder.setBolt("kafkaMessageProcessor", new PrinterBolt(), 1)
+        builder.setBolt("kafkaMessageProcessor", messageSender, 2)
                 .shuffleGrouping("kafkaMessageConsumer");
+
 
         Config config = new Config();
         config.put(Config.TOPOLOGY_TRIDENT_BATCH_EMIT_INTERVAL_MILLIS, 1000);
 
-        System.setProperty("storm.jar", props.getProperty("jar.file.path"));
+//        System.setProperty("storm.jar", props.getProperty("jar.file.path"));
 
         //More bolts stuffzz
 
@@ -142,8 +133,8 @@ public class DemoParellelTopology {
             String name = args[1];
             String[] zkHostList= args[2].split(",");
             List<String> sl= Arrays.asList(zkHostList);
-            config.setNumWorkers(2);
-            config.setMaxTaskParallelism(3);
+            config.setNumWorkers(10);
+            config.setMaxTaskParallelism(2);
             config.put(Config.NIMBUS_HOST, nimbusHost);
             config.put(Config.NIMBUS_THRIFT_PORT, 6628);
             config.put(Config.STORM_ZOOKEEPER_PORT, 2181);

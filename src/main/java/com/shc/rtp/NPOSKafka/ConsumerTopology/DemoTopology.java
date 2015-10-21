@@ -1,4 +1,4 @@
-package com.shc.rtp;
+package com.shc.rtp.NPOSKafka.ConsumerTopology;
 
 import backtype.storm.Config;
 import backtype.storm.LocalCluster;
@@ -10,19 +10,13 @@ import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.topology.TopologyBuilder;
 import backtype.storm.topology.base.BaseRichBolt;
 import backtype.storm.tuple.Tuple;
-import org.apache.avro.generic.GenericData;
+import kafka.javaapi.consumer.SimpleConsumer;
 import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import storm.kafka.*;
 
 import java.io.InputStream;
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -74,7 +68,7 @@ public class DemoTopology {
         @Override
         public void execute(Tuple tuple) {
             try {
-                logger.info("Logging tuple with logger: " + tuple.toString() +"\n");
+//                logger.info("Logging tuple with logger: " + tuple.toString() +"\n");
 //                logger.info("Value of globalRecordCount: " + globalRecordCount+"\n");
                 globalRecordCount++;
 //                System.out.println("Received from Kafka : " + tuple.toString() + "\n");
@@ -121,6 +115,8 @@ public class DemoTopology {
 
     public static void main(String[] args) throws Exception {
 
+        DynamicPartitionConnections connections;
+
         props=loadPropertiesFromFile();
 
         String zkIp = props.getProperty("kafka.zookeeper.host");
@@ -146,15 +142,18 @@ public class DemoTopology {
 
         TopologyBuilder builder = new TopologyBuilder();
 
-        builder.setSpout("kafkaMessageConsumer", kafkaSpout, 1);
+        builder.setSpout("kafkaMessageConsumer", kafkaSpout, 2);
 
-        builder.setBolt("kafkaMessageProcessor", new PrinterBolt(), 1)
+        builder.setBolt("kafkaMessageProcessor", new PrinterBolt(), 2)
                 .shuffleGrouping("kafkaMessageConsumer");
 
         Config config = new Config();
         config.put(Config.TOPOLOGY_TRIDENT_BATCH_EMIT_INTERVAL_MILLIS, 1000);
 
-        System.setProperty("storm.jar", props.getProperty("jar.file.path"));
+//        System.setProperty("storm.jar", props.getProperty("jar.file.path"));
+
+
+//        Long offet=KafkaUtils.getOffset(new SimpleConsumer("trqaeahdidat04.vm.itg.corp.us.shldcorp.com",9092,1000,1000,"spoutGrp_18"),"shc.rtp.loadtest1",1, kafkaConfig);
 
         //More bolts stuffzz
 
@@ -162,8 +161,8 @@ public class DemoTopology {
             String name = args[1];
             String[] zkHostList= args[2].split(",");
             List<String> sl= Arrays.asList(zkHostList);
-            config.setNumWorkers(2);
-            config.setMaxTaskParallelism(3);
+            config.setNumWorkers(10);
+            config.setMaxTaskParallelism(2);
             config.put(Config.NIMBUS_HOST, nimbusHost);
             config.put(Config.NIMBUS_THRIFT_PORT, 6628);
             config.put(Config.STORM_ZOOKEEPER_PORT, 2181);

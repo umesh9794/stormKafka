@@ -1,4 +1,4 @@
-package com.shc.rtp.NPOSKafka;
+package com.shc.rtp.NPOSKafka.ProducerTopology;
 
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Type;
@@ -6,8 +6,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Properties;
 
+import backtype.storm.metric.api.CountMetric;
 import com.google.gson.Gson;
 import com.ibm.jms.JMSMessage;
+import com.shc.rtp.common.NPOSConfiguration;
+import com.shc.rtp.enums.FieldEnum;
 import kafka.javaapi.producer.Producer;
 import kafka.producer.KeyedMessage;
 import kafka.producer.ProducerConfig;
@@ -41,27 +44,32 @@ public class KafkaPublisherBolt extends BaseRichBolt {
     private static String topic = null;
     private static final Properties PROPS = new Properties();
     private static Producer<String, String> producer = null;
-//    private static final NPOSConfiguration configuration = new NPOSConfiguration();
+    transient CountMetric counter;
+    private static final NPOSConfiguration configuration = new NPOSConfiguration();
+    private static int messageCounter=0;
 
     @SuppressWarnings("rawtypes")
     public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
         this.collector = collector;
         PROPS.put("serializer.class", "kafka.serializer.StringEncoder");
-        PROPS.put("metadata.broker.list", "trqaeahdidat04.vm.itg.corp.us.shldcorp.com:9092,trqaeahdidat05.vm.itg.corp.us.shldcorp.com:9092");
+        PROPS.put("metadata.broker.list", configuration.getString("metadeta.broker.list"));
         PROPS.put("request.required.acks", "0");
         producer = new Producer<String, String>(new ProducerConfig(PROPS));
-        topic = "shc.rtp.npos15";
+        topic = configuration.getString("kafka.topic");
+        counter = new CountMetric();
+        context.registerMetric("record_execute_count",counter,1);
     }
 
     public void execute(Tuple input) {
         String strMessage = null;
+        String segmentsJson=null;
         Message posMsg = null;
             try {
                 gson= new Gson();
                 Object jmsMsg = input.getValueByField("npos_message");
                 posMsg = ((JMSMessage) jmsMsg);
                 strMessage = convertStreamToString(posMsg);
-                System.out.println("Recieved Message:"+ strMessage);
+//                System.out.println("Recieved Message:"+ strMessage);
 
                 @SuppressWarnings("rawtypes")
                 Map parsedSegments = MessageParser.instance().parseMessage(strMessage);
@@ -69,18 +77,33 @@ public class KafkaPublisherBolt extends BaseRichBolt {
                 @SuppressWarnings("serial")
                 Type nposMessageType = new TypeToken<Map<String, Map<String, String>>>() {
                 }.getType();
-                String segmentsJson = gson.toJson(parsedSegments, nposMessageType);
+                segmentsJson = gson.toJson(parsedSegments, nposMessageType);
+
+                if(segmentsJson.equals(null))
+                    System.out.println("JSON is NULL");
 
                 System.out.println("Parsed JSON : "+segmentsJson);
 
-                producer.send(new KeyedMessage<String, String>(topic, segmentsJson));
-                this.collector.ack(input);
+
+                if(messageCounter++ %100==0) {
+                    throw new Exception("Manually Thrown Exception... DOnt Worry :-)");
+                }
+
+
+//                producer.send(new KeyedMessage<String, String>(topic, segmentsJson));
+//                this.collector.ack(input);
+////                this.collector.emit(FieldEnum.FIELD_ERROR_MESSAGE.getFieldName(),new Values(input));
+//
+//                System.out.println("Current Time Millis : "+ System.currentTimeMillis()+"\n");
+//                counter.incr();
             } catch (Exception e) {
                 producer = null;
                 e.printStackTrace();
+
 //                NPOSMessageDetail failedMessage = new NPOSMessageDetail(nposMessage.getTopologyID(), nposMessage.getNposMessage(),
 //                        ExceptionUtils.getFullStackTrace(e), ComponentFailureEnum.KAFKA_BOLT, nposMessage.getRetryCount(), new Date());
 //                this.collector.emit(new Values(failedMessage));
+                this.collector.emit(new Values(segmentsJson));
                 this.collector.fail(input);
             }
         }
@@ -88,6 +111,8 @@ public class KafkaPublisherBolt extends BaseRichBolt {
 
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
         declarer.declare(new Fields("npos_message"));
+//        declarer.declare(new Fields(FieldEnum.FIELD_ERROR_MESSAGE.getFieldName()));
+
     }
 
     /**

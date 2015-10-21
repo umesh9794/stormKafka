@@ -1,4 +1,4 @@
-package com.shc.rtp.NPOSKafka;
+package com.shc.rtp.NPOSKafka.ProducerTopology;
 
 
 import backtype.storm.Config;
