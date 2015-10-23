@@ -18,13 +18,15 @@ public class ClusterConnectionManager {
 
     public void connect(NPOSConfiguration config)
     {
+        System.out.println("Cassandra Contact Points :" +config.getString("cassandra.cluster.contactpoints"));
         cluster = Cluster.builder()
                 .addContactPoints(config.getString("cassandra.cluster.contactpoints"))
+                .withCredentials("nposuser", "nposuser")
 //                .withLoadBalancingPolicy(new DCAwareRoundRobinPolicy("US_EAST"))
                 .build();
         cluster.getConfiguration()
-                .getProtocolOptions();
-//                .setCompression(ProtocolOptions.Compression.LZ4);
+                .getProtocolOptions()
+                .setCompression(ProtocolOptions.Compression.LZ4);
 
         Metadata metadata = cluster.getMetadata();
         System.out.printf("Connected to cluster: %s\n",metadata.getClusterName());

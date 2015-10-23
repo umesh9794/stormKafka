@@ -11,9 +11,12 @@ import com.google.gson.Gson;
 import com.ibm.jms.JMSMessage;
 import com.shc.rtp.common.NPOSConfiguration;
 import com.shc.rtp.enums.FieldEnum;
+import kafka.admin.AdminUtils;
 import kafka.javaapi.producer.Producer;
 import kafka.producer.KeyedMessage;
 import kafka.producer.ProducerConfig;
+import kafka.utils.ZKStringSerializer$;
+import org.I0Itec.zkclient.ZkClient;
 
 import org.apache.commons.lang.CharSetUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
@@ -47,6 +50,9 @@ public class KafkaPublisherBolt extends BaseRichBolt {
     transient CountMetric counter;
     private static final NPOSConfiguration configuration = new NPOSConfiguration();
     private static int messageCounter=0;
+    private static String kafkaZKHost=null;
+    private static int kafkaZKPort=0;
+
 
     @SuppressWarnings("rawtypes")
     public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
@@ -56,6 +62,9 @@ public class KafkaPublisherBolt extends BaseRichBolt {
         PROPS.put("request.required.acks", "0");
         producer = new Producer<String, String>(new ProducerConfig(PROPS));
         topic = configuration.getString("kafka.topic");
+        kafkaZKHost = configuration.getString("kafka.zookeeper.host");
+        kafkaZKPort= configuration.getInt("kafka.zookeeper.port");
+//        checkAndCreateTopic();
         counter = new CountMetric();
         context.registerMetric("record_execute_count",counter,1);
     }
@@ -82,22 +91,19 @@ public class KafkaPublisherBolt extends BaseRichBolt {
                 if(segmentsJson.equals(null))
                     System.out.println("JSON is NULL");
 
-                System.out.println("Parsed JSON : "+segmentsJson);
-
+//                System.out.println("Parsed JSON : "+segmentsJson);
 
                 if(messageCounter++ %100==0) {
-                    throw new Exception("Manually Thrown Exception... DOnt Worry :-)");
+                    throw new Exception("Manually Thrown Exception... Dont Worry :-)");
                 }
+                producer.send(new KeyedMessage<String, String>(topic, segmentsJson));
+                this.collector.ack(input);
 
-
-//                producer.send(new KeyedMessage<String, String>(topic, segmentsJson));
-//                this.collector.ack(input);
-////                this.collector.emit(FieldEnum.FIELD_ERROR_MESSAGE.getFieldName(),new Values(input));
-//
+//                this.collector.emit(FieldEnum.FIELD_ERROR_MESSAGE.getFieldName(),new Values(input));//
 //                System.out.println("Current Time Millis : "+ System.currentTimeMillis()+"\n");
 //                counter.incr();
             } catch (Exception e) {
-                producer = null;
+//                producer = null;
                 e.printStackTrace();
 
 //                NPOSMessageDetail failedMessage = new NPOSMessageDetail(nposMessage.getTopologyID(), nposMessage.getNposMessage(),
@@ -134,5 +140,23 @@ public class KafkaPublisherBolt extends BaseRichBolt {
         stringMessage = new String(bout.toByteArray());
         bout.close();
         return stringMessage;
+    }
+
+    /**
+     * Check for Kafka Topic existence and create if not exists
+     */
+    private static void checkAndCreateTopic()
+    {
+        int sessionTimeoutMs = 10000;
+        int connectionTimeoutMs = 10000;
+        Properties topicConfig = new Properties();
+        ZkClient zkClient = new ZkClient(kafkaZKHost+":"+kafkaZKPort, sessionTimeoutMs, connectionTimeoutMs, ZKStringSerializer$.MODULE$);
+        System.out.println("Topic Already Exists !");
+
+        if(!AdminUtils.topicExists(zkClient,topic )){
+            System.out.println("Topic Not Exists !");
+            AdminUtils.createTopic(zkClient, topic, configuration.getInt("kafka.topic.partition"),configuration.getInt("kafka.topic.replication"),topicConfig);
+            System.out.println("Kafka Topic "+ topic+" Created Successfully!");
+        }
     }
 }

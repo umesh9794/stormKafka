@@ -29,8 +29,6 @@ public class NPOSKafkaPublisherTopology {
      */
     public static void main(String[] args) throws Exception {
 
-        System.out.println("Netty SOurce : " + LengthFieldBasedFrameDecoder.class.getCanonicalName());
-        System.out.println("Netty SOurce : " + LengthFieldBasedFrameDecoder.class.getMethods());
         loadPropertiesFromFile();
         String nimbusHost =props.getProperty("storm.nimbus");
         TopologyBuilder topologyBuilder = new TopologyBuilder();
@@ -40,7 +38,7 @@ public class NPOSKafkaPublisherTopology {
 
         Config config = new Config();
         System.setProperty("storm.jar",  props.getProperty("jar.file.path"));
-        if (args != null && args.length > 5) {
+        if (args != null && args.length > 1) {
             String name = args[1];
             String[] zkHostList = args[2].split(",");
             List<String> sl = Arrays.asList(zkHostList);

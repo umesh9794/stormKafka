@@ -41,7 +41,7 @@ public class CassandraLoggerBolt extends BaseRichBolt {
         cfdao = new ClusterConnectionManager();
         cfdao.connect(configuration);
         session= cfdao.getSession();
-          kafka_topic= configuration.getString("kafka.topic");
+        kafka_topic= configuration.getString("kafka.topic");
 
     }
 
@@ -50,7 +50,7 @@ public class CassandraLoggerBolt extends BaseRichBolt {
         try {
             String nposMessage= input.getString(0);
             System.out.println("Received Error Message from Bolt: " + nposMessage);
-            String sqlString="INSERT INTO rtp.exceptionlogsfornpos (uid,affected_kafka_topic,crt_ts,lupd_ts,message_string ,replayed) VALUES (uuid(),'"+kafka_topic+"',dateof(now()),dateof(now()) , '"+nposMessage+"', "+false+" )";
+            String sqlString="INSERT INTO npos.kafkapublishererrorlog (uid,affected_kafka_topic,crt_ts,lupd_ts,message_string ,replayed) VALUES (uuid(),'"+kafka_topic+"',dateof(now()),dateof(now()) , '"+nposMessage+"', "+false+" )";
             session.execute(sqlString);
             this.collector.ack(input);
         } catch (Exception e) {
