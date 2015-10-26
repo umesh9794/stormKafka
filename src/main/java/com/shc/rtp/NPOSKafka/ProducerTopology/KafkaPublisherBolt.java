@@ -9,7 +9,9 @@ import java.util.Properties;
 import backtype.storm.metric.api.CountMetric;
 import com.google.gson.Gson;
 import com.ibm.jms.JMSMessage;
+import com.shc.rtp.NPOSKafka.notification.model.NotificationModel;
 import com.shc.rtp.common.NPOSConfiguration;
+import com.shc.rtp.enums.ComponentFailureEnum;
 import com.shc.rtp.enums.FieldEnum;
 import kafka.admin.AdminUtils;
 import kafka.javaapi.producer.Producer;
@@ -29,6 +31,7 @@ import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import org.apache.http.util.EncodingUtils;
+import org.joda.time.DateTime;
 import shc.npos.parsers.MessageParser;
 
 import com.google.common.reflect.TypeToken;
@@ -104,21 +107,20 @@ public class KafkaPublisherBolt extends BaseRichBolt {
 //                counter.incr();
             } catch (Exception e) {
 //                producer = null;
-                e.printStackTrace();
-
 //                NPOSMessageDetail failedMessage = new NPOSMessageDetail(nposMessage.getTopologyID(), nposMessage.getNposMessage(),
 //                        ExceptionUtils.getFullStackTrace(e), ComponentFailureEnum.KAFKA_BOLT, nposMessage.getRetryCount(), new Date());
 //                this.collector.emit(new Values(failedMessage));
-                this.collector.emit(new Values(segmentsJson));
+                NotificationModel notificationModel = new NotificationModel("KafkaPublisher",
+                        e.getMessage(), new DateTime(), ComponentFailureEnum.KAFKA_DEMO_PUBLISHER_BOLT);
+                this.collector.emit(new Values(segmentsJson,configuration.getString("cassandra.publisher.tablename"),"kafkaPublisher",notificationModel));
                 this.collector.fail(input);
             }
         }
 
 
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
-        declarer.declare(new Fields("npos_message"));
-//        declarer.declare(new Fields(FieldEnum.FIELD_ERROR_MESSAGE.getFieldName()));
-
+        declarer.declare(new Fields("npos_message","cassandra_table_name","source_topology",FieldEnum.FIELD_NOTIFICATION_DETAILS
+                .getFieldName()));
     }
 
     /**

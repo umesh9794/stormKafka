@@ -49,9 +49,17 @@ public class CassandraLoggerBolt extends BaseRichBolt {
     public void execute(Tuple input) {
         try {
             String nposMessage= input.getString(0);
+            String cassandraTableName= input.getString(1);
+            String sourceTopology= input.getString(2);
+            String sqlString=null;
             System.out.println("Received Error Message from Bolt: " + nposMessage);
-            String sqlString="INSERT INTO npos.kafkapublishererrorlog (uid,affected_kafka_topic,crt_ts,lupd_ts,message_string ,replayed) VALUES (uuid(),'"+kafka_topic+"',dateof(now()),dateof(now()) , '"+nposMessage+"', "+false+" )";
-            session.execute(sqlString);
+            if(cassandraTableName.equals(configuration.getString("cassandra.publisher.tablename"))) {
+                sqlString = "INSERT INTO " + cassandraTableName + " (uid,affected_kafka_topic,crt_ts,lupd_ts,message_string ,replayed) VALUES (uuid(),'" + kafka_topic + "',dateof(now()),dateof(now()) , '" + nposMessage + "', " + false + " )";
+            }
+            else {
+                sqlString = "INSERT INTO " + cassandraTableName + " (uid,source_topology,crt_ts,lupd_ts,message_string ,replayed) VALUES (uuid(),'" + sourceTopology + "',dateof(now()),dateof(now()) , '" + nposMessage + "', " + false + " )";
+            }
+                session.execute(sqlString);
             this.collector.ack(input);
         } catch (Exception e) {
               LOG.error(e.getMessage());

@@ -5,6 +5,8 @@ import backtype.storm.LocalCluster;
 import backtype.storm.StormSubmitter;
 import backtype.storm.metric.LoggingMetricsConsumer;
 import backtype.storm.topology.TopologyBuilder;
+import com.shc.rtp.NPOSKafka.notification.NotificationEvaluatorBolt;
+import com.shc.rtp.NPOSKafka.notification.NotificationSenderBolt;
 import com.shc.rtp.cassandra.CassandraLoggerBolt;
 import org.jboss.netty.handler.codec.frame.LengthFieldBasedFrameDecoder;
 import com.shc.rtp.enums.FieldEnum;
@@ -35,6 +37,10 @@ public class NPOSKafkaPublisherTopology {
         topologyBuilder.setSpout("MQBrowserSpout", new MQBrowserSpout("STORM.QA.EES.DATACOLLECT.QC01"), 1);
         topologyBuilder.setBolt("KafkaPublisherBolt", new KafkaPublisherBolt(), 2).shuffleGrouping("MQBrowserSpout", "mq_spout_msg_receive_success_stream");
         topologyBuilder.setBolt("CassandraBolt", new CassandraLoggerBolt(),2).shuffleGrouping("KafkaPublisherBolt");
+
+        topologyBuilder.setBolt("notificationEval",new NotificationEvaluatorBolt(),2).shuffleGrouping("KafkaPublisherBolt");
+        topologyBuilder.setBolt("notificationSend",new NotificationSenderBolt("umesh.chaudhary@searshc.com;Mahesh.Acharekar@searshc.com;HasanUL.Huzaibi@searshc.com"),2).shuffleGrouping("notificationEval");
+
 
         Config config = new Config();
         System.setProperty("storm.jar",  props.getProperty("jar.file.path"));

@@ -9,9 +9,19 @@ import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.topology.TopologyBuilder;
 import backtype.storm.topology.base.BaseRichBolt;
+import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
+import backtype.storm.tuple.Values;
+import com.shc.rtp.NPOSKafka.notification.NotificationEvaluatorBolt;
+import com.shc.rtp.NPOSKafka.notification.NotificationSenderBolt;
+import com.shc.rtp.NPOSKafka.notification.model.NotificationModel;
+import com.shc.rtp.cassandra.CassandraLoggerBolt;
+import com.shc.rtp.common.NPOSConfiguration;
+import com.shc.rtp.enums.ComponentFailureEnum;
+import com.shc.rtp.enums.FieldEnum;
 import kafka.javaapi.consumer.SimpleConsumer;
 import org.apache.commons.lang.StringUtils;
+import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import storm.kafka.*;
@@ -34,6 +44,8 @@ public class DemoTopology {
     public static StringBuilder sb=new StringBuilder();
     public static Properties props=new Properties();
     public static List<String> tupleList = new ArrayList<>();
+    private static final NPOSConfiguration configuration = new NPOSConfiguration();
+
 
     /**
      * Bolt Class
@@ -46,10 +58,12 @@ public class DemoTopology {
         private static final Logger logger = LoggerFactory.getLogger(PrinterBolt.class);
         private OutputCollector m_collector;
         private Properties boltProps=new Properties();
-
+        private static final NPOSConfiguration configuration = new NPOSConfiguration();
 
         @Override
         public void declareOutputFields(OutputFieldsDeclarer declarer) {
+            declarer.declare(new Fields("npos_message","cassandra_table_name","source_topology", FieldEnum.FIELD_NOTIFICATION_DETAILS
+                    .getFieldName()));
         }
 
         @SuppressWarnings("rawtypes")
@@ -70,11 +84,10 @@ public class DemoTopology {
             try {
 //                logger.info("Logging tuple with logger: " + tuple.toString() +"\n");
 //                logger.info("Value of globalRecordCount: " + globalRecordCount+"\n");
-                globalRecordCount++;
-//                System.out.println("Received from Kafka : " + tuple.toString() + "\n");
+                System.out.println("Received from Kafka : " + tuple.toString() + "\n");
                 tupleList.add(tuple.toString());
 //                sb.append(tuple.toString()+"\n");
-                if(globalRecordCount==100) {
+                if(globalRecordCount++ % 100==0) {
                     SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy h:mm:ss a");
 
 //                    TODO: Resolve below HDFS write error: RPC.getProxy, so such method error !
@@ -100,14 +113,19 @@ public class DemoTopology {
 //                        fin.writeUTF(tuple.toString());
 //                        fin.close();
 //                    }
-                    insertIntoMysql();
-                    tupleList.clear();
-                    globalRecordCount=0;
+//                    insertIntoMysql();
+                    //Cassandra Sender
+                    throw new Exception("Manual Exception ! Don't Worry !");
+//                    tupleList.clear();
                 }
             }
             catch (Exception ioe)
             {
-                ioe.printStackTrace();
+                NotificationModel notificationModel = new NotificationModel("KafkaConsumer_SHO",
+                        ioe.getMessage(), new DateTime(), ComponentFailureEnum.KAFKA_DEMO_CONSUMER_BOLT);
+//                m_collector.emit(new Values(notificationModel));
+                m_collector.emit(new Values(tuple.getString(0),configuration.getString("cassandra.consumer.tablename"),"SHO_Consumer",notificationModel));
+                this.m_collector.fail(tuple);
             }
             m_collector.ack(tuple);
         }
@@ -127,7 +145,7 @@ public class DemoTopology {
 
         ZkHosts zkHosts = new ZkHosts(zookeeperHost);
 
-        SpoutConfig kafkaConfig = new SpoutConfig(zkHosts, args[0], "", "spoutGrp_12");
+        SpoutConfig kafkaConfig = new SpoutConfig(zkHosts, configuration.getString("kafka.topic"), "", "spoutGrp_2");
 //        kafkaConfig.startOffsetTime=kafka.api.OffsetRequest.EarliestTime();
 
         kafkaConfig.scheme = new SchemeAsMultiScheme(new StringScheme());
@@ -146,11 +164,18 @@ public class DemoTopology {
 
         builder.setBolt("kafkaMessageProcessor", new PrinterBolt(), 2)
                 .shuffleGrouping("kafkaMessageConsumer");
+        builder.setBolt("failedMessageLogger", new CassandraLoggerBolt(), 2)
+                .shuffleGrouping("kafkaMessageProcessor");
+
+        builder.setBolt("notificationEval",new NotificationEvaluatorBolt(),2).shuffleGrouping("kafkaMessageProcessor");
+        builder.setBolt("notificationSend",new NotificationSenderBolt("umesh.chaudhary@searshc.com;Mahesh.Acharekar@searshc.com;HasanUL.Huzaibi@searshc.com"),2).shuffleGrouping("notificationEval");
+
+
 
         Config config = new Config();
         config.put(Config.TOPOLOGY_TRIDENT_BATCH_EMIT_INTERVAL_MILLIS, 1000);
 
-//        System.setProperty("storm.jar", props.getProperty("jar.file.path"));
+        System.setProperty("storm.jar", props.getProperty("jar.file.path"));
 
 
 //        Long offet=KafkaUtils.getOffset(new SimpleConsumer("trqaeahdidat04.vm.itg.corp.us.shldcorp.com",9092,1000,1000,"spoutGrp_18"),"shc.rtp.loadtest1",1, kafkaConfig);

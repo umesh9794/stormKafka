@@ -81,7 +81,7 @@ public class NotificationSenderBolt extends BaseRichBolt {
             email.setHostName(CONFIGURATION.getString(NPOSConstant.PROP_MAIL_SERVER_HOST));
             email.setSSLOnConnect(false);
             email.setFrom(CONFIGURATION.getString(NPOSConstant.PROP_MAIL_FROM));
-            email.setSubject("NPOS System Notification: DO NOT REPLY");
+            email.setSubject("NPOS (QA) System Notification: DO NOT REPLY");
             email.addPart(getHtmlText(notificationModel), "text/html");
             addReceipients();
             email.send();
