@@ -8,6 +8,7 @@ import backtype.storm.topology.TopologyBuilder;
 import com.shc.rtp.NPOSKafka.notification.NotificationEvaluatorBolt;
 import com.shc.rtp.NPOSKafka.notification.NotificationSenderBolt;
 import com.shc.rtp.cassandra.CassandraLoggerBolt;
+import com.shc.rtp.common.NPOSConfiguration;
 import org.jboss.netty.handler.codec.frame.LengthFieldBasedFrameDecoder;
 import com.shc.rtp.enums.FieldEnum;
 
@@ -22,7 +23,8 @@ import java.util.Properties;
 public class NPOSKafkaPublisherTopology {
 
 
-    public static Properties props= new Properties();
+    private static Properties props= new Properties();
+    private static final NPOSConfiguration configuration = new NPOSConfiguration();
 
     /**
      *
@@ -31,20 +33,23 @@ public class NPOSKafkaPublisherTopology {
      */
     public static void main(String[] args) throws Exception {
 
-        loadPropertiesFromFile();
-        String nimbusHost =props.getProperty("storm.nimbus");
+        String nimbusHost = configuration.getString("storm.nimbus");
         TopologyBuilder topologyBuilder = new TopologyBuilder();
-        topologyBuilder.setSpout("MQBrowserSpout", new MQBrowserSpout("STORM.QA.EES.DATACOLLECT.QC01"), 1);
+
+        WebsphereMQSpout wmqs=new WebsphereMQSpout("hfqamqsvr3.vm.itg.corp.us.shldcorp.com",1414,"SQCT0001","STORM.SVRCONN","STORM.QA.EES.DATACOLLECT.QC01");
+
+//        topologyBuilder.setSpout("MQBrowserSpout", new MQBrowserSpout("STORM.QA.EES.DATACOLLECT.QC01"), 1);
+        topologyBuilder.setSpout("MQBrowserSpout", wmqs, 1);
         topologyBuilder.setBolt("KafkaPublisherBolt", new KafkaPublisherBolt(), 2).shuffleGrouping("MQBrowserSpout", "mq_spout_msg_receive_success_stream");
         topologyBuilder.setBolt("CassandraBolt", new CassandraLoggerBolt(),2).shuffleGrouping("KafkaPublisherBolt");
 
         topologyBuilder.setBolt("notificationEval",new NotificationEvaluatorBolt(),2).shuffleGrouping("KafkaPublisherBolt");
-        topologyBuilder.setBolt("notificationSend",new NotificationSenderBolt("umesh.chaudhary@searshc.com;Mahesh.Acharekar@searshc.com;HasanUL.Huzaibi@searshc.com"),2).shuffleGrouping("notificationEval");
+        topologyBuilder.setBolt("notificationSend",new NotificationSenderBolt("umesh.chaudhary@searshc.com"),2).shuffleGrouping("notificationEval");
 
 
         Config config = new Config();
-        System.setProperty("storm.jar",  props.getProperty("jar.file.path"));
-        if (args != null && args.length > 1) {
+        System.setProperty("storm.jar", configuration.getString("jar.file.path"));
+        if (args != null && args.length > 5) {
             String name = args[1];
             String[] zkHostList = args[2].split(",");
             List<String> sl = Arrays.asList(zkHostList);

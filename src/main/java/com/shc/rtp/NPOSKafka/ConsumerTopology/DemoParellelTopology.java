@@ -10,6 +10,7 @@ import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.topology.TopologyBuilder;
 import backtype.storm.topology.base.BaseRichBolt;
 import backtype.storm.tuple.Tuple;
+import com.shc.rtp.common.NPOSConfiguration;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,8 +32,9 @@ public class DemoParellelTopology {
 
     public static int globalRecordCount = 0;
     public static StringBuilder sb=new StringBuilder();
-    public static Properties props=new Properties();
     public static List<String> tupleList = new ArrayList<>();
+    private static final NPOSConfiguration configuration = new NPOSConfiguration();
+
 
 
     /**
@@ -88,13 +90,11 @@ public class DemoParellelTopology {
 
     public static void main(String[] args) throws Exception {
 
-        props= loadPropertiesFromFile();
+        String zkIp = configuration.getString("kafka.zookeeper.host");
 
-        String zkIp = props.getProperty("kafka.zookeeper.host");
+        String nimbusHost = configuration.getString("storm.nimbus");
 
-        String nimbusHost = props.getProperty("storm.nimbus");
-
-        String zookeeperHost = zkIp+ ":" + props.getProperty("kafka.zookeeper.port");
+        String zookeeperHost = zkIp+ ":" + configuration.getString("kafka.zookeeper.port");
 
         ZkHosts zkHosts = new ZkHosts(zookeeperHost);
 
@@ -125,7 +125,7 @@ public class DemoParellelTopology {
         Config config = new Config();
         config.put(Config.TOPOLOGY_TRIDENT_BATCH_EMIT_INTERVAL_MILLIS, 1000);
 
-//        System.setProperty("storm.jar", props.getProperty("jar.file.path"));
+        System.setProperty("storm.jar", configuration.getString("jar.file.path"));
 
         //More bolts stuffzz
 

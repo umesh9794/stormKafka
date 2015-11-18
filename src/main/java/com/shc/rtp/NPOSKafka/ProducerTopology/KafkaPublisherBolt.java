@@ -81,7 +81,6 @@ public class KafkaPublisherBolt extends BaseRichBolt {
                 Object jmsMsg = input.getValueByField("npos_message");
                 posMsg = ((JMSMessage) jmsMsg);
                 strMessage = convertStreamToString(posMsg);
-//                System.out.println("Recieved Message:"+ strMessage);
 
                 @SuppressWarnings("rawtypes")
                 Map parsedSegments = MessageParser.instance().parseMessage(strMessage);
@@ -89,16 +88,16 @@ public class KafkaPublisherBolt extends BaseRichBolt {
                 @SuppressWarnings("serial")
                 Type nposMessageType = new TypeToken<Map<String, Map<String, String>>>() {
                 }.getType();
-                segmentsJson = gson.toJson(parsedSegments, nposMessageType);
+                strMessage= segmentsJson = gson.toJson(parsedSegments, nposMessageType);
 
                 if(segmentsJson.equals(null))
                     System.out.println("JSON is NULL");
 
-//                System.out.println("Parsed JSON : "+segmentsJson);
-
+                System.out.println("Parsed Message :"+ strMessage);
                 if(messageCounter++ %100==0) {
-                    throw new Exception("Manually Thrown Exception... Dont Worry :-)");
+                    throw new Exception("Manual exception for testing purpose... Don't Worry!");
                 }
+
                 producer.send(new KeyedMessage<String, String>(topic, segmentsJson));
                 this.collector.ack(input);
 
@@ -112,7 +111,7 @@ public class KafkaPublisherBolt extends BaseRichBolt {
 //                this.collector.emit(new Values(failedMessage));
                 NotificationModel notificationModel = new NotificationModel("KafkaPublisher",
                         e.getMessage(), new DateTime(), ComponentFailureEnum.KAFKA_DEMO_PUBLISHER_BOLT);
-                this.collector.emit(new Values(segmentsJson,configuration.getString("cassandra.publisher.tablename"),"kafkaPublisher",notificationModel));
+                this.collector.emit(new Values(strMessage,configuration.getString("cassandra.publisher.tablename"),"kafkaPublisher",notificationModel));
                 this.collector.fail(input);
             }
         }
@@ -139,7 +138,7 @@ public class KafkaPublisherBolt extends BaseRichBolt {
             bout.write(buffer, 0, byteRead);
         }
         bout.flush();
-        stringMessage = new String(bout.toByteArray());
+        stringMessage = new String(bout.toByteArray() );
         bout.close();
         return stringMessage;
     }

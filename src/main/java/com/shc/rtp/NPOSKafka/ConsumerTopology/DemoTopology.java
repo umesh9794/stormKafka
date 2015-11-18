@@ -42,7 +42,6 @@ public class DemoTopology {
 
     public static int globalRecordCount = 0;
     public static StringBuilder sb=new StringBuilder();
-    public static Properties props=new Properties();
     public static List<String> tupleList = new ArrayList<>();
     private static final NPOSConfiguration configuration = new NPOSConfiguration();
 
@@ -135,17 +134,15 @@ public class DemoTopology {
 
         DynamicPartitionConnections connections;
 
-        props=loadPropertiesFromFile();
+        String zkIp =configuration.getString("kafka.zookeeper.host");
 
-        String zkIp = props.getProperty("kafka.zookeeper.host");
+        String nimbusHost =configuration.getString("storm.nimbus");
 
-        String nimbusHost = props.getProperty("storm.nimbus");
-
-        String zookeeperHost = zkIp+ ":" + props.getProperty("kafka.zookeeper.port");
+        String zookeeperHost = zkIp+ ":" + configuration.getString("kafka.zookeeper.port");
 
         ZkHosts zkHosts = new ZkHosts(zookeeperHost);
 
-        SpoutConfig kafkaConfig = new SpoutConfig(zkHosts, configuration.getString("kafka.topic"), "", "spoutGrp_2");
+        SpoutConfig kafkaConfig = new SpoutConfig(zkHosts, configuration.getString("kafka.topic"), "", "spoutGrp_4");
 //        kafkaConfig.startOffsetTime=kafka.api.OffsetRequest.EarliestTime();
 
         kafkaConfig.scheme = new SchemeAsMultiScheme(new StringScheme());
@@ -168,14 +165,14 @@ public class DemoTopology {
                 .shuffleGrouping("kafkaMessageProcessor");
 
         builder.setBolt("notificationEval",new NotificationEvaluatorBolt(),2).shuffleGrouping("kafkaMessageProcessor");
-        builder.setBolt("notificationSend",new NotificationSenderBolt("umesh.chaudhary@searshc.com;Mahesh.Acharekar@searshc.com;HasanUL.Huzaibi@searshc.com"),2).shuffleGrouping("notificationEval");
+        builder.setBolt("notificationSend",new NotificationSenderBolt("umesh.chaudhary@searshc.com"),2).shuffleGrouping("notificationEval");
 
 
 
         Config config = new Config();
         config.put(Config.TOPOLOGY_TRIDENT_BATCH_EMIT_INTERVAL_MILLIS, 1000);
 
-        System.setProperty("storm.jar", props.getProperty("jar.file.path"));
+        System.setProperty("storm.jar", configuration.getString("jar.file.path"));
 
 
 //        Long offet=KafkaUtils.getOffset(new SimpleConsumer("trqaeahdidat04.vm.itg.corp.us.shldcorp.com",9092,1000,1000,"spoutGrp_18"),"shc.rtp.loadtest1",1, kafkaConfig);
