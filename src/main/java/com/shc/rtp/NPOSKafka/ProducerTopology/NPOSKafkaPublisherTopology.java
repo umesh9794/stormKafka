@@ -23,7 +23,6 @@ import java.util.Properties;
 public class NPOSKafkaPublisherTopology {
 
 
-    private static Properties props= new Properties();
     private static final NPOSConfiguration configuration = new NPOSConfiguration();
 
     /**
@@ -38,7 +37,6 @@ public class NPOSKafkaPublisherTopology {
 
         WebsphereMQSpout wmqs=new WebsphereMQSpout("hfqamqsvr3.vm.itg.corp.us.shldcorp.com",1414,"SQCT0001","STORM.SVRCONN","STORM.QA.EES.DATACOLLECT.QC01");
 
-//        topologyBuilder.setSpout("MQBrowserSpout", new MQBrowserSpout("STORM.QA.EES.DATACOLLECT.QC01"), 1);
         topologyBuilder.setSpout("MQBrowserSpout", wmqs, 1);
         topologyBuilder.setBolt("KafkaPublisherBolt", new KafkaPublisherBolt(), 2).shuffleGrouping("MQBrowserSpout", "mq_spout_msg_receive_success_stream");
         topologyBuilder.setBolt("CassandraBolt", new CassandraLoggerBolt(),2).shuffleGrouping("KafkaPublisherBolt");
@@ -48,6 +46,7 @@ public class NPOSKafkaPublisherTopology {
 
 
         Config config = new Config();
+        //Comment below line while building JAR
         System.setProperty("storm.jar", configuration.getString("jar.file.path"));
         if (args != null && args.length > 5) {
             String name = args[1];
@@ -61,13 +60,13 @@ public class NPOSKafkaPublisherTopology {
             config.put(Config.STORM_ZOOKEEPER_SERVERS, Arrays.asList(zkHostList));
             config.setNumAckers(20);
             config.setNumWorkers(20);
-//            config.setMessageTimeoutSecs(300);
-//            config.setStatsSampleRate(1.0);
-//            config.setMaxSpoutPending(50000);
-//            config.put(Config.TOPOLOGY_RECEIVER_BUFFER_SIZE, 8);
-//            config.put(Config.TOPOLOGY_TRANSFER_BUFFER_SIZE,            32);
-//            config.put(Config.TOPOLOGY_EXECUTOR_RECEIVE_BUFFER_SIZE, 16384);
-//            config.put(Config.TOPOLOGY_EXECUTOR_SEND_BUFFER_SIZE,    16384);
+            config.setMessageTimeoutSecs(300);
+            config.setStatsSampleRate(1.0);
+            config.setMaxSpoutPending(50000);
+            config.put(Config.TOPOLOGY_RECEIVER_BUFFER_SIZE, 8);
+            config.put(Config.TOPOLOGY_TRANSFER_BUFFER_SIZE,            32);
+            config.put(Config.TOPOLOGY_EXECUTOR_RECEIVE_BUFFER_SIZE, 16384);
+            config.put(Config.TOPOLOGY_EXECUTOR_SEND_BUFFER_SIZE,    16384);
             config.registerMetricsConsumer(LoggingMetricsConsumer.class,2);
             StormSubmitter.submitTopology(name, config, topologyBuilder.createTopology());
         } else {
@@ -75,20 +74,6 @@ public class NPOSKafkaPublisherTopology {
             config.setMaxTaskParallelism(2);
             LocalCluster cluster = new LocalCluster();
             cluster.submitTopology("kafkaPublisher-test", config, topologyBuilder.createTopology());
-        }
-    }
-
-        /**
-         * Read properties file
-         * @throws Exception
-         */
-    public static void loadPropertiesFromFile() throws Exception
-    {
-        final String resourceName = "application.properties";
-        ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        props = new Properties();
-        try(InputStream resourceStream = loader.getResourceAsStream(resourceName)) {
-            props.load(resourceStream);
         }
     }
 }

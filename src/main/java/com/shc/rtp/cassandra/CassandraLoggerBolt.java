@@ -78,9 +78,7 @@ public class CassandraLoggerBolt extends BaseRichBolt {
             this.collector.ack(input);
         } catch (Exception e) {
               LOG.error(e.getMessage());
-//            final IErrorLogger errorLogger = ErrorLoggerFactory.getErrorLogger(nposMessage.getComponentFailureEnum());
-//            final String jsonRep = GSON.toJson(nposMessage);
-//            errorLogger.logMessage(jsonRep);
+
         }
     }
 
